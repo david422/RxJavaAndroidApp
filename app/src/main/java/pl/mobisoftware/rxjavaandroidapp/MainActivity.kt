@@ -28,27 +28,26 @@ class MainActivity : AppCompatActivity() {
 
         val reactor1Temperature = getReactorTemperature(3400)
         val reactor2Temperature = getReactorTemperature(1800)
-        val sinusTemperature = Observable.intervalRange(0, 360,0, 10, TimeUnit.MILLISECONDS)
-                .repeat()
-                .map { Math.sin(Math.toRadians(it.toDouble()))
-                        .times(4)
-                }
-                .map { it.plus(10).toFloat()  }
+        val reactor3Temperature = getReactorTemperature(1200)
 
 
         graphView = findViewById(R.id.temperatureGraph)
+        graphView.maxPointsPerX = 1000
 
 
-        val reactorsTemperature = Observable.combineLatest(reactor1Temperature, reactor2Temperature, sinusTemperature,
+        val reactorsTemperature = Observable.combineLatest(reactor1Temperature, reactor2Temperature, reactor3Temperature,
                 Function3<Float, Float, Float, TemperaturesModel> { t1, t2, t3 -> TemperaturesModel(temperature1 = t1, temperature2 = t2, temperature3 = t3) })
 
-        reactorsTemperatureDisposable = Observable.interval(0, 16, TimeUnit.MILLISECONDS)
-                .withLatestFrom(reactorsTemperature, BiFunction<Long, TemperaturesModel, TemperaturesModel> { t1, t2 -> t2 })
-                .scan { (index), currentTemp ->
-                    currentTemp.index = index +1
+
+        Observable.interval(0, 16, TimeUnit.MILLISECONDS)
+                .withLatestFrom(reactorsTemperature, BiFunction<Long, TemperaturesModel, TemperaturesModel> { aLong, t2 -> t2 })
+//        reactorsTemperature
+
+                .scan(BiFunction<TemperaturesModel, TemperaturesModel, TemperaturesModel> { previousTemp, currentTemp ->
+                    currentTemp.index = previousTemp.index + 1
                     currentTemp
                 }
-                .doOnNext { Timber.d("Emit temperature") }
+                )
                 .doOnError { it.printStackTrace() }
                 .doOnComplete { Timber.d("OnComplete") }
                 .observeOn(AndroidSchedulers.mainThread())
